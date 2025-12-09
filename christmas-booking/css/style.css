@@ -1,0 +1,41 @@
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.cover-container {
+    max-width: 960px;
+}
+
+.venue-card {
+    transition: transform 0.2s;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.venue-card:hover {
+    transform: translateY(-5px);
+}
+
+.venue-card.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+    filter: grayscale(100%);
+}
+
+.status-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.login-btn-line {
+    background-color: #00B900;
+    color: white;
+    font-weight: bold;
+}
+
+.login-btn-line:hover {
+    background-color: #009900;
+    color: white;
+}
