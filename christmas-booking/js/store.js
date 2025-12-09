@@ -106,12 +106,17 @@ const store = {
         lines.forEach(line => {
             const parts = line.split('\t');
             if (parts.length >= 5) {
+                const rawCat = parts[3].trim();
+                let category = rawCat;
+                if (rawCat === '單獨' || rawCat === 'Single') category = 'Single';
+                else if (rawCat === '合辦' || rawCat === 'Joint') category = 'Joint';
+
                 newVenues.push({
                     id: 'v_' + Date.now() + Math.random().toString(36).substr(2, 5),
                     shortName: parts[0].trim(),
                     name: parts[1].trim(),
                     date: parts[2].trim(),
-                    category: parts[3].trim(),
+                    category: category,
                     capacity: parseInt(parts[4].trim()) || 1,
                     registered: 0,
                     status: parts[5] ? parts[5].trim() : "Open",
@@ -162,9 +167,7 @@ const store = {
             if (parts.length >= 2) {
                 newGroups.push({
                     id: parts[0].trim(),
-                    name: parts[1].trim(),
-                    leader1: parts[2] ? parts[2].trim() : '',
-                    leader2: parts[3] ? parts[3].trim() : ''
+                    name: parts[1].trim()
                 });
             }
         });

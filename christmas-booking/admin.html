@@ -7,6 +7,7 @@
     <title>後台管理 Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <style>
@@ -61,7 +62,7 @@
                         <button class="btn btn-outline-primary me-2" @click="activeTab = 'venues'"
                             :class="{active: activeTab==='venues'}">Venues</button>
                         <button class="btn btn-outline-primary me-2" @click="activeTab = 'groups'"
-                            :class="{active: activeTab==='groups'}">Groups & Import</button>
+                            :class="{active: activeTab==='groups'}">Groups</button>
                         <button class="btn btn-outline-primary me-2" @click="activeTab = 'bookings'"
                             :class="{active: activeTab==='bookings'}">Bookings</button>
                         <button class="btn btn-outline-primary" @click="activeTab = 'settings'"
@@ -78,13 +79,29 @@
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">場地管理 Venues</h5>
                         <div>
-                            <button class="btn btn-danger btn-sm me-2" @click="clearAllVenues">Delete All
-                                Venues</button>
-                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#venueModal">
+                            <!-- Venue Import Toggler/Modal Trigger -->
+                            <button class="btn btn-outline-success btn-sm me-2" data-bs-toggle="collapse"
+                                data-bs-target="#venueImportBox">
+                                <i class="fas fa-file-import"></i> Import (Paste)
+                            </button>
+                            <button class="btn btn-danger btn-sm me-2" @click="clearAllVenues">Delete All</button>
+                            <button class="btn btn-primary btn-sm" @click="openCreateVenueModal">
                                 + New Venue
                             </button>
                         </div>
                     </div>
+
+                    <!-- Import Box (Collapsible) -->
+                    <div class="collapse p-3 bg-light border-bottom" id="venueImportBox">
+                        <h6>Paste Venue Data (Excel/TSV)</h6>
+                        <small class="text-muted">Format: ShortName | Name | Date | Category | Capacity | Status |
+                            Remark</small>
+                        <textarea class="form-control mb-2" rows="5" v-model="importText"
+                            placeholder="Paste data here..."></textarea>
+                        <button class="btn btn-success btn-sm" @click="importType='venues'; processImport()">Import
+                            Venues</button>
+                    </div>
+
                     <div class="card-body p-0">
                         <table class="table table-hover table-striped mb-0">
                             <thead>
@@ -115,8 +132,13 @@
                                     <td>{{ venue.registered }}</td>
                                     <td>{{ venue.status }}</td>
                                     <td>
-                                        <button class="btn btn-sm btn-danger"
-                                            @click="deleteVenue(venue.id)">Del</button>
+                                        <button class="btn btn-sm btn-outline-secondary me-1"
+                                            @click="openEditVenueModal(venue)">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @click="deleteVenue(venue.id)">
+                                            <i class="fas fa-times"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -124,39 +146,25 @@
                     </div>
                 </div>
 
-                <!-- Groups & Import Tab -->
+                <!-- Groups Tab -->
                 <div v-if="activeTab === 'groups'" class="card shadow-sm">
                     <div class="card-header bg-white">
                         <h5 class="mb-0">匯入 & 小組 Import & Groups</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <h6>Paste from Excel (TSV)</h6>
                                 <p class="text-muted small">
-                                    Format:
-                                    <span v-if="importType === 'groups'">ID | Name | Leader1 | Leader2</span>
-                                    <span v-else>ShortName | Name | Date | Category | Capacity | Status | Remark</span>
+                                    Format: ID | Name
                                 </p>
-                                <div class="mb-2">
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" value="groups"
-                                            v-model="importType">
-                                        <label class="form-check-label">Groups</label>
-                                    </div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" value="venues"
-                                            v-model="importType">
-                                        <label class="form-check-label">Venues</label>
-                                    </div>
-                                </div>
-
                                 <textarea class="form-control mb-2" rows="10" v-model="importText"
                                     placeholder="Paste content here..."></textarea>
-                                <button class="btn btn-success" @click="processImport">Import Data</button>
+                                <button class="btn btn-success" @click="importType='groups'; processImport()">Import
+                                    Groups</button>
                             </div>
 
-                            <div class="col-md-6 border-start">
+                            <div class="col-md-7 border-start">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h6>Existing Groups ({{ groups.length }})</h6>
                                     <button class="btn btn-danger btn-sm" @click="clearAllGroups">Delete All</button>
@@ -166,7 +174,7 @@
                                         <thead>
                                             <tr>
                                                 <th>ID</th>
-                                                <th>Name (Editable)</th>
+                                                <th>Name</th>
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
@@ -174,11 +182,25 @@
                                             <tr v-for="g in groups" :key="g.id">
                                                 <td>{{ g.id }}</td>
                                                 <td>
-                                                    <input type="text" class="form-control form-control-sm"
-                                                        v-model="g.name" @change="updateGroup(g)">
+                                                    <div v-if="editingGroupId === g.id" class="d-flex">
+                                                        <input type="text" class="form-control form-control-sm"
+                                                            v-model="g.name" @keyup.enter="saveGroupEdit(g)"
+                                                            @blur="saveGroupEdit(g)">
+                                                    </div>
+                                                    <div v-else @dblclick="enableEditGroup(g.id)">
+                                                        {{ g.name }}
+                                                    </div>
                                                 </td>
-                                                <td><button class="btn btn-sm btn-outline-danger"
-                                                        @click="deleteGroup(g.id)">x</button></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-light text-primary me-1"
+                                                        @click="enableEditGroup(g.id)">
+                                                        <i class="fas fa-pencil-alt"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-light text-danger"
+                                                        @click="deleteGroup(g.id)">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -190,8 +212,11 @@
 
                 <!-- Bookings Tab -->
                 <div v-if="activeTab === 'bookings'" class="card shadow-sm">
-                    <div class="card-header bg-white">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Booking Log</h5>
+                        <button class="btn btn-success btn-sm" @click="exportBookings">
+                            <i class="fas fa-file-excel me-1"></i> Export Excel
+                        </button>
                     </div>
                     <div class="card-body p-0">
                         <table class="table table-hover mb-0">
@@ -243,44 +268,55 @@
 
             </div>
         </div>
-    </div>
-
-    <!-- Modal -->
-    <div class="modal fade" id="venueModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">New Venue</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form>
-                        <div class="mb-2"><label>Short Name</label><input class="form-control"
-                                v-model="newVenue.shortName"></div>
-                        <div class="mb-2"><label>Name</label><input class="form-control" v-model="newVenue.name"></div>
-                        <div class="mb-2"><label>Date</label><input class="form-control" v-model="newVenue.date"></div>
-                        <div class="mb-2">
-                            <label>Category</label>
-                            <select class="form-select" v-model="newVenue.category">
-                                <option value="Single">Single (單獨)</option>
-                                <option value="Joint">Joint (合辦)</option>
-                            </select>
-                        </div>
-                        <div class="mb-2"><label>Capacity</label><input type="number" class="form-control"
-                                v-model="newVenue.capacity"></div>
-                        <div class="mb-2"><label>Remark</label><input class="form-control" v-model="newVenue.remark">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" @click="createVenue">Create</button>
+        <!-- Venue Modal (Create/Edit) -->
+        <div class="modal fade" id="venueModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ isEditingVenue ? 'Edit Venue' : 'New Venue' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form>
+                            <div class="mb-2"><label>Short Name</label><input class="form-control"
+                                    v-model="newVenue.shortName"></div>
+                            <div class="mb-2"><label>Name</label><input class="form-control" v-model="newVenue.name">
+                            </div>
+                            <div class="mb-2"><label>Date</label><input class="form-control" v-model="newVenue.date">
+                            </div>
+                            <div class="mb-2">
+                                <label>Category</label>
+                                <select class="form-select" v-model="newVenue.category">
+                                    <option value="Single">Single (單獨)</option>
+                                    <option value="Joint">Joint (合辦)</option>
+                                </select>
+                            </div>
+                            <div class="mb-2"><label>Capacity</label><input type="number" class="form-control"
+                                    v-model="newVenue.capacity"></div>
+                            <div class="mb-2">
+                                <label>Status</label>
+                                <select class="form-select" v-model="newVenue.status">
+                                    <option value="Open">Open</option>
+                                    <option value="Full">Full</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+                            <div class="mb-2"><label>Remark</label><input class="form-control"
+                                    v-model="newVenue.remark">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" @click="saveVenue">Save</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <!-- FontAwesome is included in head -->
     <script src="js/store.js"></script>
     <script src="js/admin.js"></script>
 

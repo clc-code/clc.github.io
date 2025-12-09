@@ -10,11 +10,14 @@ const app = new Vue({
 
         activeTab: 'venues',
         newVenue: {
+            id: null, // If null, create. If present, update.
             shortName: '', name: '', date: '', category: 'Single',
             capacity: 10, status: 'Open', remark: ''
         },
         importText: '',
-        importType: 'groups', // groups | venues
+        importType: 'venues', // groups | venues
+
+        editingGroupId: null // Track which group is being edited (Pencil icon)
     },
     computed: {
         venues() {
@@ -28,6 +31,9 @@ const app = new Vue({
         },
         bookings() {
             return store.state.data ? store.state.data.bookings : [];
+        },
+        isEditingVenue() {
+            return !!this.newVenue.id;
         }
     },
     methods: {
@@ -71,14 +77,32 @@ const app = new Vue({
             alert('Settings Saved');
         },
 
-        createVenue() {
-            const venue = {
-                id: 'v_' + Date.now(),
-                registered: 0,
-                ...this.newVenue
-            };
-            store.addVenue(venue);
-            this.newVenue = { shortName: '', name: '', date: '', category: 'Single', capacity: 10, status: 'Open', remark: '' };
+        openCreateVenueModal() {
+            this.newVenue = { id: null, shortName: '', name: '', date: '', category: 'Single', capacity: 10, status: 'Open', remark: '' };
+            $('#venueModal').modal('show');
+        },
+
+        openEditVenueModal(venue) {
+            this.newVenue = JSON.parse(JSON.stringify(venue)); // Copy
+            $('#venueModal').modal('show');
+        },
+
+        saveVenue() {
+            if (this.newVenue.id) {
+                // Update
+                store.updateVenue(this.newVenue);
+            } else {
+                // Create
+                const venue = {
+                    id: 'v_' + Date.now(),
+                    registered: 0,
+                    ...this.newVenue
+                };
+                delete venue.id; // remove null id so we generated one? Oh wait we just spread it.
+                // Actually, let's fix the id generation properly.
+                venue.id = 'v_' + Date.now();
+                store.addVenue(venue);
+            }
             $('#venueModal').modal('hide');
         },
 
@@ -89,9 +113,8 @@ const app = new Vue({
         },
 
         toggleCategory(venue) {
-            // Toggle Single <-> Joint
             const newCat = (venue.category === 'Single') ? 'Joint' : 'Single';
-            venue.category = newCat; // Direct mutate reactive object works in Vue 2 if properly initialized
+            venue.category = newCat;
             store.updateVenue(venue);
         },
 
@@ -101,8 +124,13 @@ const app = new Vue({
             }
         },
 
-        updateGroup(group) {
+        enableEditGroup(id) {
+            this.editingGroupId = id;
+        },
+
+        saveGroupEdit(group) {
             store.updateGroup(group);
+            this.editingGroupId = null;
         },
 
         processImport() {
@@ -142,9 +170,37 @@ const app = new Vue({
             }
         },
 
+        exportBookings() {
+            const bookings = store.getBookings();
+            if (bookings.length === 0) {
+                alert("No bookings to export.");
+                return;
+            }
+
+            let csv = "Time,Venue,Venue Name,Group ID,User\n";
+            bookings.forEach(b => {
+                const venue = store.getVenue(b.venueId);
+                const venueShort = venue ? venue.shortName : b.venueId;
+                const venueName = venue ? venue.name : 'Unknown';
+                const time = new Date(b.timestamp).toLocaleString().replace(',', '');
+                csv += `${time},${venueShort},${venueName},${b.groupId},${b.userName}\n`;
+            });
+
+            // BOM for Excel UTF-8
+            const bom = "\uFEFF";
+            const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "bookings_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        },
+
         getVenueName(id) {
             const v = store.getVenue(id);
-            return v ? v.name : id;
+            return v ? v.name : 'Deleted (' + id.substr(-4) + ')';
         }
     }
 });
